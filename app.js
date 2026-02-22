@@ -5,6 +5,12 @@ const COLLAPSE_KEY = "stockTradeCollapseDates.v1";
 const CLOUD_CFG_KEY = "stockTradeCloudCfg.v1";
 const DIRTY_KEY = "stockTradeDirty.v1";
 const LAST_SYNC_KEY = "stockTradeLastSync.v1";
+
+const REGISTRY_URL = ""; 
+// TODO: 레지스트리 Apps Script 웹앱(/exec) URL을 여기에 넣으면,
+// 사용자들은 "암호만"으로 자신의 Apps Script URL+토큰을 불러올 수 있어요.
+// 예) https://script.google.com/macros/s/XXXX/exec
+
 const $ = (id) => document.getElementById(id);
 const ASOF_KEY = "stockTradeAsOfDate.v1";
 
@@ -82,7 +88,7 @@ function loadRows() {
 }
 function saveRows(rows) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
-  scheduleCloudSave();
+  scheduleCloudUpload('rows');
 }
 
 function loadCloseMap(){
@@ -95,7 +101,7 @@ function loadCloseMap(){
 }
 function saveCloseMap(map){
   localStorage.setItem(CLOSE_KEY, JSON.stringify(map));
-  scheduleCloudSave();
+  scheduleCloudUpload('close');
 }
 function loadCollapsed() {
   try {
@@ -107,7 +113,7 @@ function loadCollapsed() {
 }
 function saveCollapsed(obj) {
   localStorage.setItem(COLLAPSE_KEY, JSON.stringify(obj));
-  scheduleCloudSave();
+  scheduleCloudUpload('collapse');
 }
 let collapsedDates = loadCollapsed();
 let closeMap = loadCloseMap();
@@ -156,7 +162,7 @@ function isDirty() {
   try { return localStorage.getItem(DIRTY_KEY) === "1"; } catch { return false; }
 }
 
-function scheduleCloudSave() {
+function scheduleCloudUpload(reason) {
   markDirty();
   if (!cloudCfg.auto) return;
   if (!canCloud()) return;
@@ -274,7 +280,7 @@ function setupBackupUI() {
       setCloudStatus('백업으로 복원 완료 ✅ (원하면 클라우드 저장 눌러서 업로드)', 'ok');
       markDirty();
       // 복원 후 자동 저장 켜져 있으면 업로드 예약
-      scheduleCloudSave();
+      scheduleCloudUpload('restore');
     } catch (e) {
       setCloudStatus(`복원 실패 ❌ (${e.message})`, 'err');
     } finally {
@@ -282,6 +288,161 @@ function setupBackupUI() {
     }
   });
 }
+
+
+// ===== Easy Login (암호로 URL/토큰 불러오기) =====
+function bytesToB64Url(buf) {
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+function b64UrlToBytes(s) {
+  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = '='.repeat((4 - (b64.length % 4)) % 4);
+  const bin = atob(b64 + pad);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function sha256B64Url(str) {
+  const enc = new TextEncoder().encode(str);
+  const digest = await crypto.subtle.digest('SHA-256', enc);
+  return bytesToB64Url(digest);
+}
+async function deriveAesKey(password, saltBytes, iterations = 150000) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: saltBytes, iterations, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+async function encryptCfg(password, obj) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveAesKey(password, salt);
+  const plaintext = new TextEncoder().encode(JSON.stringify(obj));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plaintext);
+  return {
+    v: 1,
+    salt: bytesToB64Url(salt),
+    iv: bytesToB64Url(iv),
+    ct: bytesToB64Url(ct),
+  };
+}
+async function decryptCfg(password, payload) {
+  if (!payload || payload.v !== 1) throw new Error('지원하지 않는 payload');
+  const salt = b64UrlToBytes(payload.salt);
+  const iv = b64UrlToBytes(payload.iv);
+  const ct = b64UrlToBytes(payload.ct);
+  const key = await deriveAesKey(password, salt);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  const txt = new TextDecoder().decode(pt);
+  return JSON.parse(txt);
+}
+async function registryCall(action, bodyObj) {
+  if (!REGISTRY_URL) throw new Error('REGISTRY_URL이 비어있어요 (개발자 설정 필요)');
+  const res = await fetch(REGISTRY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, ...bodyObj }),
+  });
+  const txt = await res.text();
+  let data;
+  try { data = JSON.parse(txt); } catch { data = { ok: false, error: txt }; }
+  if (!data?.ok) throw new Error(data?.error || '레지스트리 요청 실패');
+  return data;
+}
+async function registryRegister(password, cfgObj) {
+  const id = await sha256B64Url('v1:' + password);
+  const payload = await encryptCfg(password, cfgObj);
+  await registryCall('register', { id, payload });
+  return id;
+}
+async function registryFetch(password) {
+  const id = await sha256B64Url('v1:' + password);
+  const data = await registryCall('get', { id });
+  const cfgObj = await decryptCfg(password, data.payload);
+  return cfgObj;
+}
+
+function setupEasyLoginUI() {
+  const passEl = $('gsPass');
+  const regBtn = $('gsRegBtn');
+  const loginBtn = $('gsLoginBtn');
+  const hintEl = $('gsEasyHint');
+
+  if (!passEl || !regBtn || !loginBtn) return;
+
+  // 레지스트리 URL 미설정이면 안내만
+  if (!REGISTRY_URL) {
+    if (hintEl) hintEl.textContent = '⚠️ (개발자) app.js의 REGISTRY_URL을 먼저 설정해야 “암호 로그인”이 동작해요.';
+    regBtn.disabled = true;
+    loginBtn.disabled = true;
+    return;
+  }
+
+  regBtn.addEventListener('click', async () => {
+    const password = (passEl.value || '').trim();
+    const url = ($('gsUrl')?.value || '').trim();
+    const token = ($('gsToken')?.value || '').trim();
+    if (!password) { alert('암호를 입력해줘'); return; }
+    if (!url || !token) { alert('먼저 Apps Script URL/토큰을 입력해줘'); return; }
+
+    regBtn.disabled = true;
+    loginBtn.disabled = true;
+    try {
+      await registryRegister(password, { url, token });
+      // 이 기기에도 저장
+      cloudCfg = { ...cloudCfg, url, token };
+      saveCloudCfg(cloudCfg);
+      setCloudStatus('가입(등록) 완료 ✅ 이제 다른 기기에서 암호만 입력해도 돼요', 'ok');
+      if (hintEl) hintEl.textContent = '등록 완료! (암호는 잃어버리면 복구 불가)';
+    } catch (e) {
+      setCloudStatus(`가입(등록) 실패 ❌ (${e.message})`, 'err');
+    } finally {
+      regBtn.disabled = false;
+      loginBtn.disabled = false;
+    }
+  });
+
+  loginBtn.addEventListener('click', async () => {
+    const password = (passEl.value || '').trim();
+    if (!password) { alert('암호를 입력해줘'); return; }
+
+    regBtn.disabled = true;
+    loginBtn.disabled = true;
+    try {
+      const cfg = await registryFetch(password);
+      if (!cfg?.url || !cfg?.token) throw new Error('저장된 값이 이상해요');
+      // UI 반영
+      const urlEl = $('gsUrl'); const tokEl = $('gsToken');
+      if (urlEl) urlEl.value = cfg.url;
+      if (tokEl) tokEl.value = cfg.token;
+      // 저장
+      cloudCfg = { ...cloudCfg, url: cfg.url, token: cfg.token };
+      saveCloudCfg(cloudCfg);
+      setCloudStatus('암호 로그인 성공 ✅ URL/토큰 자동 입력됨', 'ok');
+      if (hintEl) hintEl.textContent = '성공! 이제 “불러오기/업로드” 버튼을 누르면 돼요.';
+    } catch (e) {
+      setCloudStatus(`암호 로그인 실패 ❌ (${e.message})`, 'err');
+    } finally {
+      regBtn.disabled = false;
+      loginBtn.disabled = false;
+    }
+  });
+}
+// ===== /Easy Login =====
 
 function setupCloudUI() {
   const urlEl = $('gsUrl');
@@ -1403,21 +1564,38 @@ function addEmptyRow() {
 // --- Init ---
 let rows = [];
 
-// auth.js의 showApp()에서 로그인 후 호출됨
-function initApp() {
+document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
+  setupCloudUI();
+  setupEasyLoginUI();
+    setupBackupUI();
+    // AUTO_CLOUD_BOOT: URL/토큰이 저장돼 있으면 자동 불러오기
+    try {
+      cloudCfg = loadCloudCfg();
+      if (canCloud()) {
+        // 로컬에 수정중(Dirty)이면 덮어쓰지 않고 안내
+        if (isDirty()) {
+          setCloudStatus('로컬 변경사항이 있어 자동 불러오기를 건너뜀(저장/불러오기 선택)');
+        } else {
+          cloudLoadAll().catch(e => setCloudStatus(`자동 불러오기 실패 ❌ (${e.message})`, 'err'));
+        }
+      }
+    } catch {}
+
 
   rows = loadRows();
-  $("asOfDate").value = (localStorage.getItem(ASOF_KEY) || todayISO());
+    $("asOfDate").value = (localStorage.getItem(ASOF_KEY) || todayISO());
 
   $("addRowBtn").addEventListener("click", addEmptyRow);
+
+  $("clearCloseBtn").addEventListener("click", clearCloseForDate);
   $("exportBtn").addEventListener("click", exportCSV);
   $("clearBtn").addEventListener("click", clearAll);
   $("asOfDate").addEventListener("change", () => {
     const v = normDateIso($("asOfDate").value || "");
     if (v) localStorage.setItem(ASOF_KEY, v);
     renderFull();
-    scheduleCloudSave();
+    scheduleCloudUpload();
   });
 
   $("importFile").addEventListener("change", (e) => {
@@ -1426,6 +1604,7 @@ function initApp() {
     e.target.value = "";
   });
 
+  // hold scope buttons
   const setScope = (s) => {
     holdScope = s;
     $("holdScopeAll").classList.toggle("active", s === "ALL");
@@ -1438,13 +1617,15 @@ function initApp() {
   $("holdScopeGEN").addEventListener("click", () => setScope("GEN"));
 
   if (!rows.length) {
+    // 첫 실행(로컬 데이터 없음)에는 "화면용 빈 행"만 보여주고,
+    // 사용자가 입력/행추가를 하기 전까지는 로컬/클라우드에 저장하지 않음(빈 데이터로 덮어쓰기 방지)
     const seed = $("asOfDate").value || todayISO();
     rows.push(blankRow(seed));
     renderFull();
   } else {
     renderFull();
   }
-}
+});
 
 function fmtQty(n) {
   if (n === "" || n === null || n === undefined || Number.isNaN(n)) return "-";

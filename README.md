@@ -17,25 +17,6 @@
 ## GitHub Pages
 Settings → Pages → Deploy from a branch → main / (root)
 
-
-## Supabase(원본 DB) + 로그인만 하면 끝(추천)
-이 버전은 **Supabase를 원본 DB**로 사용하고, 로그인하면 어떤 기기에서도 자동으로 내 데이터가 불러와지도록 구성할 수 있어요.
-
-### 1) 코드에 Supabase URL/Anon Key 고정
-`auth.js` 상단의 아래 값을 본인 프로젝트 값으로 교체하세요.
-
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
-
-> Anon Key는 공개 키(프론트 포함 가능)지만, **RLS 정책**이 반드시 필요합니다.
-
-### 2) DB 테이블 + RLS
-Supabase SQL Editor에서 `stock_data` 테이블을 만들고 RLS 정책을 적용하세요(가이드 참고).
-
-### 3) Auth 설정
-Supabase Dashboard → Authentication에서 Email, Google 로그인 설정 및 Redirect URL에 GitHub Pages 주소를 등록하세요.
-
-
 ## 구글 스프레드시트(클라우드) 연동
 이 버전은 **PC/모바일/다른 브라우저**에서도 동일 데이터를 쓰도록, Apps Script + 구글시트를 DB처럼 쓸 수 있어요.
 
@@ -56,3 +37,8 @@ Supabase Dashboard → Authentication에서 Email, Google 로그인 설정 및 R
 입력 후 **클라우드에 저장(업로드)** / **클라우드에서 불러오기** 버튼을 누르면 됩니다.
 
 > 팁: “변경 시 자동 업로드”를 켜두면, 입력할 때마다 자동으로 저장돼요.
+
+
+## (옵션) 암호만으로 URL/토큰 불러오기(레지스트리)
+- stock-app/registry_script.gs 를 새 Apps Script 프로젝트에 붙여넣고 웹앱으로 배포
+- 생성된 /exec URL을 stock-app/app.js 의 REGISTRY_URL 에 넣은 뒤 다시 배포
