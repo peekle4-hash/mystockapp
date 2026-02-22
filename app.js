@@ -2445,6 +2445,111 @@ function addEmptyRow() {
   focusCompanyInput(i);
 }
 
+
+// --- Update Log (local only) ---
+const UPDATE_LOG_KEY = "update_log_v1";
+
+function loadUpdateLog() {
+  try {
+    const raw = localStorage.getItem(UPDATE_LOG_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+function saveUpdateLog(arr) {
+  try { localStorage.setItem(UPDATE_LOG_KEY, JSON.stringify(arr || [])); } catch {}
+}
+
+function renderUpdateLog() {
+  const tbody = document.querySelector("#updatesTable tbody");
+  if (!tbody) return;
+  const log = loadUpdateLog();
+  tbody.innerHTML = "";
+  if (!log.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="3" style="text-align:center; color:#64748b; padding:14px;">아직 기록이 없어요. 오른쪽 위에서 날짜 선택 후 “행 추가”를 눌러봐.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  // 최신 날짜가 위로
+  log.sort((a,b)=> String(b.date||"").localeCompare(String(a.date||"")) || (b._t||0)-(a._t||0));
+
+  for (const item of log) {
+    const tr = document.createElement("tr");
+
+    const tdDate = document.createElement("td");
+    tdDate.textContent = item.date || "";
+    tdDate.style.whiteSpace = "nowrap";
+
+    const tdText = document.createElement("td");
+    const ta = document.createElement("textarea");
+    ta.className = "update-textarea";
+    ta.rows = 2;
+    ta.placeholder = "업데이트 내용을 적어줘 (예: 매수·매도 계획 카드 2열 배치 추가)";
+    ta.value = item.text || "";
+    ta.addEventListener("input", () => {
+      item.text = ta.value;
+      saveUpdateLog(loadUpdateLog().map(x => (x._id===item._id ? item : x)));
+    });
+    tdText.appendChild(ta);
+
+    const tdDel = document.createElement("td");
+    tdDel.style.textAlign="center";
+    const delBtn = document.createElement("button");
+    delBtn.type="button";
+    delBtn.className="btn btn-danger";
+    delBtn.textContent="삭제";
+    delBtn.addEventListener("click", () => {
+      const next = loadUpdateLog().filter(x => x._id !== item._id);
+      saveUpdateLog(next);
+      renderUpdateLog();
+    });
+    tdDel.appendChild(delBtn);
+
+    tr.appendChild(tdDate);
+    tr.appendChild(tdText);
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  }
+}
+
+function setupUpdatesUI() {
+  const dateEl = document.getElementById("updateLogDate");
+  const addBtn = document.getElementById("addUpdateBtn");
+  if (!dateEl || !addBtn) return;
+
+  dateEl.value = todayISO();
+
+  addBtn.addEventListener("click", () => {
+    const date = normDateIso(dateEl.value || "") || todayISO();
+    const log = loadUpdateLog();
+    const item = { _id: cryptoRandomId(), _t: Date.now(), date, text: "" };
+    log.push(item);
+    saveUpdateLog(log);
+    renderUpdateLog();
+    // 포커스 맨 위 textarea
+    setTimeout(() => {
+      const first = document.querySelector(".update-textarea");
+      first?.focus();
+    }, 30);
+  });
+
+  renderUpdateLog();
+}
+
+function cryptoRandomId() {
+  try {
+    const a = new Uint8Array(8);
+    crypto.getRandomValues(a);
+    return Array.from(a).map(x=>x.toString(16).padStart(2,"0")).join("");
+  } catch {
+    return String(Date.now()) + "_" + Math.random().toString(16).slice(2);
+  }
+}
+
 // --- Init ---
 let rows = [];
 
@@ -2454,6 +2559,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEasyLoginUI();
     setupBackupUI();
   setupPlanUI();
+  setupUpdatesUI();
     // AUTO_CLOUD_BOOT: URL/토큰이 저장돼 있으면 자동 불러오기
     try {
       cloudCfg = loadCloudCfg();

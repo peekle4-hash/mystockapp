@@ -35,7 +35,7 @@
     <button class="tab-btn" data-tab="tab-plans" type="button">매수·매도 계획</button>
     <button class="tab-btn" data-tab="tab-monthly" type="button">월별 수익률</button>
     <button class="tab-btn" data-tab="tab-sync" type="button">구글시트 연동</button>
-    <button class="tab-btn" data-tab="tab-format" type="button">도움말</button>
+    <button class="tab-btn" data-tab="tab-updates" type="button">업데이트</button>
   </nav>
 </header>
 
@@ -427,13 +427,36 @@
     </details>
   </section>
 
-  <section class="card small tab-page" id="tab-format">
-    <details>
-      <summary>CSV 형식</summary>
-      <p>헤더: <code>date,company,account,side,price,qty,close</code></p>
-      <p><code>side</code>는 <b>BUY</b> 또는 <b>SELL</b> (또는 매수/매도) 가능.</p>
-    </details>
+  
+  <section class="card tab-page" id="tab-updates">
+    <div class="row" style="align-items:flex-end;">
+      <div style="flex:1;">
+        <h2 style="margin:0;">업데이트 기록</h2>
+        <p class="note" style="margin-top:6px;">수정/개선한 내용을 날짜별로 기록해두는 곳이에요.</p>
+      </div>
+      <div>
+        <label for="updateLogDate"><b>날짜</b></label>
+        <input id="updateLogDate" type="date"/>
+      </div>
+      <div>
+        <button class="btn" id="addUpdateBtn" type="button">행 추가</button>
+      </div>
+    </div>
+
+    <div style="margin-top:12px; overflow:auto;">
+      <table class="table" id="updatesTable">
+        <thead>
+          <tr>
+            <th style="min-width:120px;">날짜</th>
+            <th>업데이트 내용</th>
+            <th style="width:84px;">삭제</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </section>
+
 
   <!-- (추가) 종목 실시간 시세 모달 -->
   <div id="priceModal" class="modal" aria-hidden="true">
