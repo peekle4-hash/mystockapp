@@ -8,8 +8,8 @@
 // 아래 2줄을 본인 Supabase 프로젝트 값으로 교체하세요.
 // Project Settings → API 에서 확인
 // ────────────────────────────────────────────────────────────
-const SUPABASE_URL = 'REPLACE_WITH_YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'REPLACE_WITH_YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_URL = 'https://jittzvopatbgvyqqvwlq.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_w6Lr58xTsYH5zSQg2yE8vA_74ClIGeF';
 
 // ── Supabase 클라이언트 ──
 let _supabase = null;
