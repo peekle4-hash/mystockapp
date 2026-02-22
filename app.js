@@ -14,16 +14,8 @@ const PLAN_SELL_KEY = "stockTradePlanSell.v1";
 const AUTO_CLOSE_CACHE_KEY = "stockTradeAutoCloseCache.v1";
 
 // ===== Easy Login 레지스트리 URL =====
-// (기존엔 app.js에 하드코딩했는데, 업데이트로 파일이 바뀌면 값이 날아갈 수 있어서
-//  localStorage에 저장하도록 변경)
-const REGISTRY_URL_KEY = 'stockTradeRegistryUrl.v1';
-function loadRegistryUrl() {
-  return (localStorage.getItem(REGISTRY_URL_KEY) || '').toString().trim();
-}
-function saveRegistryUrl(url) {
-  localStorage.setItem(REGISTRY_URL_KEY, (url || '').toString().trim());
-}
-let REGISTRY_URL = loadRegistryUrl();
+// 배포용: 레지스트리 URL을 코드에 고정 (사용자는 “암호만” 입력하면 됨)
+const REGISTRY_URL = 'https://script.google.com/macros/s/AKfycbyQ59zA5AfZuCuCWuNtTpdvHdy7k8TIWS2L_MCQWgj_4W4qPyv__2rkZ4Zg0iwgol4P/exec';
 
 const $ = (id) => document.getElementById(id);
 const ASOF_KEY = "stockTradeAsOfDate.v1";
@@ -454,33 +446,11 @@ function setupEasyLoginUI() {
   const regBtn = $('gsRegBtn');
   const loginBtn = $('gsLoginBtn');
   const hintEl = $('gsEasyHint');
-  const regUrlEl = $('gsRegistryUrl');
 
   if (!passEl || !regBtn || !loginBtn) return;
 
-  // 레지스트리 URL 입력 UI 반영
-  if (regUrlEl) {
-    regUrlEl.value = REGISTRY_URL;
-    regUrlEl.addEventListener('change', () => {
-      REGISTRY_URL = (regUrlEl.value || '').trim();
-      saveRegistryUrl(REGISTRY_URL);
-      // 버튼 활성/비활성 즉시 반영
-      const ok = !!REGISTRY_URL;
-      regBtn.disabled = !ok;
-      loginBtn.disabled = !ok;
-      if (hintEl) hintEl.textContent = ok
-        ? '레지스트리 URL 설정됨! 이제 암호만으로 불러올 수 있어요.'
-        : '레지스트리 URL을 먼저 입력해야 “암호 로그인”이 동작해요.';
-    });
-  }
-
-  // 레지스트리 URL 미설정이면 안내만
-  if (!REGISTRY_URL) {
-    if (hintEl) hintEl.textContent = '레지스트리 URL을 먼저 입력해야 “암호 로그인”이 동작해요.';
-    regBtn.disabled = true;
-    loginBtn.disabled = true;
-    return;
-  }
+  // 레지스트리 URL은 코드에 고정되어 있어요.
+  if (hintEl) hintEl.textContent = '암호만 입력해도 URL/토큰이 자동으로 채워져요. (암호는 잃어버리면 복구 불가)';
 
   regBtn.addEventListener('click', async () => {
     const password = (passEl.value || '').trim();
