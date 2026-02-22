@@ -149,25 +149,33 @@ function setLoginMsg(msg, isErr) {
 // ── DOMContentLoaded ──
 document.addEventListener('DOMContentLoaded', () => {
 
-  // 설정 저장
-  document.getElementById('cfgSaveBtn').addEventListener('click', () => {
-    const url = document.getElementById('cfgUrl').value.trim();
-    const key = document.getElementById('cfgKey').value.trim();
-    if (!url || !key) { alert('URL과 Key를 모두 입력해주세요.'); return; }
-    localStorage.setItem(CFG_URL_KEY, url);
-    localStorage.setItem(CFG_KEY_KEY, key);
-    if (initSupabase()) {
-      closeSetupModal();
-      setLoginMsg('✅ 연결 성공! 이제 로그인할 수 있어요.', false);
-    } else {
-      alert('Supabase 연결에 실패했어요. URL/Key를 다시 확인해주세요.');
-    }
-  });
+  // (고정 설정 버전) 설정 모달 요소가 없을 수 있으므로 안전 가드
+  const cfgSaveBtn = document.getElementById('cfgSaveBtn');
+  if (cfgSaveBtn) {
+    cfgSaveBtn.addEventListener('click', () => {
+      const urlEl = document.getElementById('cfgUrl');
+      const keyEl = document.getElementById('cfgKey');
+      const url = (urlEl?.value || '').trim();
+      const key = (keyEl?.value || '').trim();
+      if (!url || !key) { alert('URL과 Key를 모두 입력해주세요.'); return; }
+      localStorage.setItem(CFG_URL_KEY, url);
+      localStorage.setItem(CFG_KEY_KEY, key);
+      if (initSupabase()) {
+        closeSetupModal();
+        setLoginMsg('✅ 연결 성공! 이제 로그인할 수 있어요.', false);
+      } else {
+        alert('Supabase 연결에 실패했어요. URL/Key를 다시 확인해주세요.');
+      }
+    });
+  }
 
-  // 설정 모달 바깥 클릭 닫기
-  document.getElementById('setup-modal').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('setup-modal')) closeSetupModal();
-  });
+  const setupModal = document.getElementById('setup-modal');
+  if (setupModal) {
+    // 설정 모달 바깥 클릭 닫기
+    setupModal.addEventListener('click', (e) => {
+      if (e.target === setupModal) closeSetupModal();
+    });
+  }
 
   // Supabase 초기화 시도
   const ready = initSupabase();
