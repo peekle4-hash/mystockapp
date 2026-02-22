@@ -257,19 +257,12 @@ async function cloudCall(action, payloadObj) {
 async function cloudSaveAll() {
   setCloudStatus('업로드 중…');
   const payload = {
-    version: 2,
+    version: 1,
     updatedAt: new Date().toISOString(),
     rows,
     closeMap,
     collapsedDates,
     baseDate: (document.getElementById('asOfDate')?.value || ''),
-    // 추가 동기화(기기/브라우저 간 공유)
-    plans: {
-      buy: loadPlans('BUY'),
-      sell: loadPlans('SELL'),
-    },
-    updates: loadUpdateLog(),
-    qa: loadQaLog(),
   };
   await cloudCall('save', payload);
   clearDirty();
@@ -298,25 +291,7 @@ async function cloudLoadAll() {
   localStorage.setItem(CLOSE_KEY, JSON.stringify(closeMap));
   localStorage.setItem(COLLAPSE_KEY, JSON.stringify(collapsedDates));
 
-  // ===== 추가 동기화 데이터 반영 =====
-  try {
-    const buy = Array.isArray(p?.plans?.buy) ? p.plans.buy : (Array.isArray(p?.planBuy) ? p.planBuy : []);
-    const sell = Array.isArray(p?.plans?.sell) ? p.plans.sell : (Array.isArray(p?.planSell) ? p.planSell : []);
-    localStorage.setItem(PLAN_BUY_KEY, JSON.stringify(buy));
-    localStorage.setItem(PLAN_SELL_KEY, JSON.stringify(sell));
-  } catch {}
-  try {
-    const upd = Array.isArray(p?.updates) ? p.updates : [];
-    localStorage.setItem(UPDATE_LOG_KEY, JSON.stringify(upd));
-  } catch {}
-  try {
-    const qa = Array.isArray(p?.qa) ? p.qa : [];
-    localStorage.setItem(QA_KEY, JSON.stringify(qa));
-  } catch {}
-
   renderFull();
-  try { renderUpdateLog(); } catch {}
-  try { renderQaLog(); } catch {}
   setCloudStatus('불러오기 완료 ✅', 'ok');
 }
 
@@ -328,18 +303,12 @@ function setupBackupUI() {
   backupBtn.addEventListener('click', () => {
     // 최신 로컬 상태를 파일로 저장
     const payload = {
-      version: 2,
+      version: 1,
       exportedAt: new Date().toISOString(),
       rows,
       closeMap,
       collapsedDates,
       baseDate: (document.getElementById('asOfDate')?.value || localStorage.getItem(ASOF_KEY) || ''),
-      plans: {
-        buy: loadPlans('BUY'),
-        sell: loadPlans('SELL'),
-      },
-      updates: loadUpdateLog(),
-      qa: loadQaLog(),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -363,12 +332,6 @@ function setupBackupUI() {
       rows = Array.isArray(obj.rows) ? obj.rows : [];
       closeMap = (obj.closeMap && typeof obj.closeMap === 'object') ? obj.closeMap : {};
       collapsedDates = (obj.collapsedDates && typeof obj.collapsedDates === 'object') ? obj.collapsedDates : {};
-
-      // 추가 데이터(없으면 빈 값)
-      const buy = Array.isArray(obj?.plans?.buy) ? obj.plans.buy : [];
-      const sell = Array.isArray(obj?.plans?.sell) ? obj.plans.sell : [];
-      const upd = Array.isArray(obj?.updates) ? obj.updates : [];
-      const qa = Array.isArray(obj?.qa) ? obj.qa : [];
       const bd = normDateIso(obj.baseDate || '');
       const el = document.getElementById('asOfDate');
       if (el && bd) el.value = bd;
@@ -378,14 +341,7 @@ function setupBackupUI() {
       localStorage.setItem(CLOSE_KEY, JSON.stringify(closeMap));
       localStorage.setItem(COLLAPSE_KEY, JSON.stringify(collapsedDates));
 
-      localStorage.setItem(PLAN_BUY_KEY, JSON.stringify(buy));
-      localStorage.setItem(PLAN_SELL_KEY, JSON.stringify(sell));
-      localStorage.setItem(UPDATE_LOG_KEY, JSON.stringify(upd));
-      localStorage.setItem(QA_KEY, JSON.stringify(qa));
-
       renderFull();
-      try { renderUpdateLog(); } catch {}
-      try { renderQaLog(); } catch {}
       setCloudStatus('백업으로 복원 완료 ✅ (원하면 클라우드 저장 눌러서 업로드)', 'ok');
       markDirty();
       // 복원 후 자동 저장 켜져 있으면 업로드 예약
@@ -2511,7 +2467,6 @@ function loadUpdateLog() {
 }
 function saveUpdateLog(arr) {
   try { localStorage.setItem(UPDATE_LOG_KEY, JSON.stringify(arr || [])); } catch {}
-  scheduleCloudUpload('updates');
 }
 
 function renderUpdateLog() {
@@ -2611,7 +2566,6 @@ function loadQaLog() {
 
 function saveQaLog(arr) {
   try { localStorage.setItem(QA_KEY, JSON.stringify(arr || [])); } catch {}
-  scheduleCloudUpload('qa');
 }
 
 function renderQaLog() {

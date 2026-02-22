@@ -43,7 +43,7 @@ function ensureSpreadsheet_() {
     props.setProperty(PROP_SS_ID, id);
   }
 
-  const need = ["rows", "close", "collapsed", "plans", "updates", "qa"];
+  const need = ["rows", "close", "collapsed"];
   const existing = ss.getSheets().map(s => s.getName());
   need.forEach(n => {
     if (!existing.includes(n)) ss.insertSheet(n);
@@ -123,15 +123,6 @@ function doPost(e) {
       const collapsed = (p.collapsedDates && typeof p.collapsedDates === "object") ? p.collapsedDates : {};
       clearAndWrite_(ss.getSheetByName("collapsed"), [[JSON.stringify(collapsed)]]);
 
-      // plans / updates / qa (json 1-cell)
-      const plans = (p.plans && typeof p.plans === 'object') ? p.plans : { buy: [], sell: [] };
-      clearAndWrite_(ss.getSheetByName('plans'), [[JSON.stringify({
-        buy: Array.isArray(plans.buy) ? plans.buy : [],
-        sell: Array.isArray(plans.sell) ? plans.sell : [],
-      })]]);
-      clearAndWrite_(ss.getSheetByName('updates'), [[JSON.stringify(Array.isArray(p.updates) ? p.updates : [])]]);
-      clearAndWrite_(ss.getSheetByName('qa'), [[JSON.stringify(Array.isArray(p.qa) ? p.qa : [])]]);
-
       // meta
       PropertiesService.getScriptProperties().setProperty("UPDATED_AT", new Date().toISOString());
 
@@ -142,9 +133,6 @@ function doPost(e) {
       const rowsSheet = ss.getSheetByName("rows");
       const closeSheet = ss.getSheetByName("close");
       const collapsedSheet = ss.getSheetByName("collapsed");
-      const plansSheet = ss.getSheetByName('plans');
-      const updatesSheet = ss.getSheetByName('updates');
-      const qaSheet = ss.getSheetByName('qa');
 
       // rows
       const rv = rowsSheet.getDataRange().getValues();
@@ -181,45 +169,15 @@ function doPost(e) {
         try { outCollapsed = JSON.parse(cell); } catch { outCollapsed = {}; }
       }
 
-      // plans / updates / qa
-      let outPlans = { buy: [], sell: [] };
-      try {
-        const pcell = plansSheet.getRange(1,1).getValue();
-        if (pcell) {
-          const po = JSON.parse(pcell);
-          outPlans = {
-            buy: Array.isArray(po.buy) ? po.buy : [],
-            sell: Array.isArray(po.sell) ? po.sell : [],
-          };
-        }
-      } catch (_) {}
-
-      let outUpdates = [];
-      try {
-        const ucell = updatesSheet.getRange(1,1).getValue();
-        if (ucell) outUpdates = JSON.parse(ucell);
-        if (!Array.isArray(outUpdates)) outUpdates = [];
-      } catch (_) { outUpdates = []; }
-
-      let outQa = [];
-      try {
-        const qcell = qaSheet.getRange(1,1).getValue();
-        if (qcell) outQa = JSON.parse(qcell);
-        if (!Array.isArray(outQa)) outQa = [];
-      } catch (_) { outQa = []; }
-
       return jsonOut({
         ok: true,
         payload: {
-          version: 2,
+          version: 1,
           updatedAt: PropertiesService.getScriptProperties().getProperty("UPDATED_AT") || "",
           baseDate: PropertiesService.getScriptProperties().getProperty(PROP_BASE_DATE) || "",
           rows: outRows,
           closeMap: outCloseMap,
           collapsedDates: outCollapsed,
-          plans: outPlans,
-          updates: outUpdates,
-          qa: outQa,
         }
       });
     }
