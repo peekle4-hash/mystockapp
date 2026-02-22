@@ -32,6 +32,7 @@
     <button class="tab-btn active" data-tab="tab-dashboard" type="button">대시보드</button>
     
     <button class="tab-btn" data-tab="tab-trades" type="button">매매기록</button>
+    <button class="tab-btn" data-tab="tab-plans" type="button">매수·매도 계획</button>
     <button class="tab-btn" data-tab="tab-monthly" type="button">월별 수익률</button>
     <button class="tab-btn" data-tab="tab-sync" type="button">구글시트 연동</button>
     <button class="tab-btn" data-tab="tab-format" type="button">도움말</button>
@@ -147,28 +148,14 @@
 
   <!-- 3) 데이터 입력(매매기록) -->
   <section class="card tab-page" id="tab-trades">
-    <div class="row">
-      <h2>데이터 입력 (매매기록)</h2>
-      <div class="grow"></div>
-      <div class="btns">
-        <button id="addRowBtn">행 추가</button>
-        <button class="secondary" id="exportBtn">CSV 내보내기</button>
-        <label class="file secondary">
-          CSV 가져오기
-          <input accept=".csv" id="importFile" type="file"/>
-        </label>
-        <button class="danger" id="clearBtn">전체 삭제</button>
-      </div>
-      <div class="hint">입력: 날짜 / 기업명 / 계좌 / 매수·매도 / 단가 / 수량</div>
-    </div>
-
     <div class="row summary-row">
-      <h3 class="h3">보유현황(기업별)</h3>
+      <h3 class="h3">보유현황(기업별) <span class="title-note">데이터 확인이 추가되기를 원하는 종목은 "정확한 종목명"을 캡쳐 또는 적어서 지연이에게 카톡주세요</span></h3>
       <div class="grow"></div>
       <div class="seg">
         <button class="seg-btn active" id="holdScopeAll" type="button">전체</button>
         <button class="seg-btn" id="holdScopeISA" type="button">ISA</button>
         <button class="seg-btn" id="holdScopeGEN" type="button">일반</button>
+        <button class="seg-btn" id="holdScopeETC" type="button">기타</button>
       </div>
     </div>
 
@@ -203,7 +190,7 @@
       <div class="hint">보유수량이 0이 된 종목은 여기에 자동으로 모여요. 다시 매수하면 ‘현재 보유중’으로 돌아가요.</div>
     </div>
 
-    <div class="table-wrap mini">
+    <div class="table-wrap mini closed-wrap" style="margin-bottom:26px">
       <table id="holdTableClosed">
         <thead>
           <tr>
@@ -221,6 +208,22 @@
         </thead>
         <tbody></tbody>
       </table>
+    </div>
+
+    <!-- 데이터 입력(매매기록) 제목/버튼은 보유현황 아래로 이동 -->
+    <div class="row" style="margin-top:18px">
+      <h2 style="margin:0">데이터 입력 (매매기록)</h2>
+      <div class="grow"></div>
+      <div class="btns">
+        <button id="addRowBtn">행 추가</button>
+        <button class="secondary" id="exportBtn">CSV 내보내기</button>
+        <label class="file secondary">
+          CSV 가져오기
+          <input accept=".csv" id="importFile" type="file"/>
+        </label>
+        <!-- 전체삭제 버튼 제거(실수 방지) -->
+      </div>
+      <div class="hint">입력: 날짜 / 기업명 / 계좌 / 매수·매도 / 단가 / 수량</div>
     </div>
 
     <div class="table-wrap data-entry">
@@ -242,6 +245,71 @@
         <tbody></tbody>
       </table>
     </div>
+  </section>
+
+  <!-- 3.5) 매수/매도 계획 -->
+  <section class="card tab-page" id="tab-plans">
+    <div class="row" style="align-items:center">
+      <h2 style="margin:0">매수·매도 계획</h2>
+      <div class="grow"></div>
+          </div>
+
+    <nav class="plan-tabs" aria-label="매수/매도 계획 탭" style="margin-top:10px">
+      <button class="plan-tab-btn active" data-plan-tab="plan-hold" type="button">보유현황</button>
+      <button class="plan-tab-btn" data-plan-tab="plan-buy" type="button">매수계획</button>
+      <button class="plan-tab-btn" data-plan-tab="plan-sell" type="button">매도계획</button>
+    </nav>
+
+    <!-- 보유현황 (요약) -->
+    <section class="plan-page active" id="plan-hold">
+      <div class="row" style="margin-top:12px;align-items:center">
+        <h3 class="h3" style="font-size:16px;margin:0">현재 보유중</h3>
+        <span id="holdAsOfLabelPlan" style="margin-left:12px;font-size:13px;color:#64748b;font-weight:500"></span>
+        <div class="grow"></div>
+        <div class="note" style="margin:0">※ 계좌 범위(전체/ISA/일반)는 <b>매매기록</b> 탭에서 바꿀 수 있어요.</div>
+      </div>
+      <div class="table-wrap mini" style="margin-top:10px">
+        <table id="holdTableCurrentPlan">
+          <thead>
+            <tr>
+              <th>기업명</th>
+              <th>계좌</th>
+              <th>보유수량</th>
+              <th>평균단가</th>
+              <th>보유원가</th>
+              <th>종가 입력</th>
+              <th>평가손익</th>
+              <th>실현손익 누적</th>
+              <th>총 손익</th>
+              <th>총 수익률</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 매수계획 -->
+    <section class="plan-page" id="plan-buy">
+      <div class="row" style="margin-top:12px;align-items:center">
+        <h3 class="h3" style="font-size:16px;margin:0">매수 계획</h3>
+        <div class="grow"></div>
+        <button id="buyPlanAddBtn" type="button">+ 종목 추가</button>
+      </div>
+      <div id="buyPlanList" class="plan-list" style="margin-top:12px"></div>
+      <div class="note" id="buyPlanEmpty" style="display:none">아직 매수 계획이 없어요. <b>+ 종목 추가</b>로 시작해봐요.</div>
+    </section>
+
+    <!-- 매도계획 -->
+    <section class="plan-page" id="plan-sell">
+      <div class="row" style="margin-top:12px;align-items:center">
+        <h3 class="h3" style="font-size:16px;margin:0">매도 계획</h3>
+        <div class="grow"></div>
+        <button id="sellPlanAddBtn" type="button">+ 종목 추가</button>
+      </div>
+      <div id="sellPlanList" class="plan-list" style="margin-top:12px"></div>
+      <div class="note" id="sellPlanEmpty" style="display:none">아직 매도 계획이 없어요. <b>+ 종목 추가</b>로 시작해봐요.</div>
+    </section>
   </section>
 
   <!-- 4) 월별 수익률 -->
@@ -306,6 +374,11 @@
 <div class="note" style="margin-top:10px">
   <b>✅ “암호만”으로 URL 자동 불러오기</b><br/>
   처음 1번만 <u>URL+토큰+암호</u>로 가입(등록)하면, 다음부터는 <u>암호만</u> 입력해도 URL/토큰이 자동으로 채워져요.
+  <div style="margin-top:10px">
+    <label for="gsRegistryUrl"><b>레지스트리 URL</b> (암호 로그인용)</label>
+    <input id="gsRegistryUrl" type="text" placeholder="예) https://script.google.com/macros/s/XXXX/exec" />
+    <div class="hint" style="margin-top:4px">※ 한 번만 입력하면 저장돼요. (업데이트/새로고침해도 유지)</div>
+  </div>
   <div class="grid-2" style="margin-top:10px">
     <div>
       <label for="gsPass"><b>암호</b> (잃어버리면 복구 불가)</label>
@@ -366,6 +439,97 @@
       <p><code>side</code>는 <b>BUY</b> 또는 <b>SELL</b> (또는 매수/매도) 가능.</p>
     </details>
   </section>
+
+  <!-- (추가) 종목 실시간 시세 모달 -->
+  <div id="priceModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="priceModalTitle">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="priceModalTitle">-</div>
+          <div class="modal-sub" id="priceModalSub">-</div>
+        </div>
+        <button class="modal-close" type="button" data-modal-close aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="tvWidgetWrap"></div>
+        <div class="modal-note">※ TradingView 위젯(무료)로 표시됩니다. 실시간/지연 여부는 거래소/데이터 제공 조건에 따라 달라요.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- (추가) 매수/매도 계획 추가·수정 모달 -->
+  <div id="planModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-plan-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="planModalTitle">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="planModalTitle">계획 추가</div>
+          <div class="modal-sub" id="planModalSub">-</div>
+        </div>
+        <button class="modal-close" type="button" data-plan-close aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <label>
+            <span>종목</span>
+            <input id="planCompany" type="text" list="closeCompanyList" placeholder="예) 삼성전자" />
+          </label>
+          <label>
+            <span>계좌</span>
+            <select id="planAccountType">
+              <option value="ISA">ISA</option>
+              <option value="일반">일반</option>
+              <option value="기타">기타</option>
+            </select>
+          </label>
+          <label id="planAccountOtherWrap" style="display:none">
+            <span>기타 계좌명</span>
+            <input id="planAccountOther" type="text" placeholder="예) 연금저축, 미니스탁" />
+          </label>
+          <label>
+            <span>입력 방식</span>
+            <select id="planMode">
+              <option value="QTY">주수(수량)</option>
+              <option value="AMOUNT">금액(원)</option>
+            </select>
+          </label>
+          <label id="planQtyWrap">
+            <span>수량(주)</span>
+            <input id="planQty" type="number" step="any" placeholder="예) 10" />
+          </label>
+          <label id="planAmountWrap" style="display:none">
+            <span>투자금액(원)</span>
+            <input id="planAmount" type="text" inputmode="decimal" placeholder="예) 10,000" />
+            <div class="frac-row">
+              <label class="frac-check"><input id="planFractional" type="checkbox" /> 소수점 거래</label>
+              <input id="planUnitPrice" class="money" type="text" inputmode="decimal" placeholder="1주 가격(원)" style="display:none" />
+              <input id="planCalcQty" type="text" readonly placeholder="예상 수량(주)" style="display:none" />
+            </div>
+          </label>
+          <label>
+            <span>상태</span>
+            <select id="planStatus">
+              <option value="대기">대기</option>
+              <option value="완료">완료</option>
+            </select>
+          </label>
+        </div>
+
+        <label style="display:block;margin-top:10px">
+          <span style="display:block;font-size:12px;color:#64748b;font-weight:600;margin-bottom:6px">메모(이유/조건)</span>
+          <textarea id="planNote" rows="3" placeholder="예) 리밸런싱, 분할매수 3회"></textarea>
+        </label>
+
+        <div class="row" style="margin-top:12px;align-items:center">
+          <div class="hint" id="planCurrentHint">현재가는 종목명을 눌러 팝업에서 확인해줘.</div>
+          <div class="grow"></div>
+          <button class="secondary" type="button" data-plan-close>취소</button>
+          <button id="planSaveBtn" type="button">저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </main>
 
 <footer>
