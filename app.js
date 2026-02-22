@@ -2449,6 +2449,13 @@ function addEmptyRow() {
 // --- Update Log (local only) ---
 const UPDATE_LOG_KEY = "update_log_v1";
 
+function autoResizeTextarea(el) {
+  if (!el) return;
+  // Reset then grow to content
+  el.style.height = "auto";
+  el.style.height = (el.scrollHeight || 0) + "px";
+}
+
 function loadUpdateLog() {
   try {
     const raw = localStorage.getItem(UPDATE_LOG_KEY);
@@ -2487,13 +2494,16 @@ function renderUpdateLog() {
     const tdText = document.createElement("td");
     const ta = document.createElement("textarea");
     ta.className = "update-textarea";
-    ta.rows = 2;
+    ta.rows = 1;
     ta.placeholder = "업데이트 내용을 적어줘 (예: 매수·매도 계획 카드 2열 배치 추가)";
     ta.value = item.text || "";
     ta.addEventListener("input", () => {
+      autoResizeTextarea(ta);
       item.text = ta.value;
       saveUpdateLog(loadUpdateLog().map(x => (x._id===item._id ? item : x)));
     });
+    // initial resize
+    setTimeout(() => autoResizeTextarea(ta), 0);
     tdText.appendChild(ta);
 
     const tdDel = document.createElement("td");
@@ -2540,6 +2550,136 @@ function setupUpdatesUI() {
   renderUpdateLog();
 }
 
+
+// --- Q&A (local only) ---
+const QA_KEY = "qa_log_v1";
+
+function loadQaLog() {
+  try {
+    const raw = localStorage.getItem(QA_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveQaLog(arr) {
+  try { localStorage.setItem(QA_KEY, JSON.stringify(arr || [])); } catch {}
+}
+
+function renderQaLog() {
+  const tbody = document.querySelector("#qaTable tbody");
+  if (!tbody) return;
+  const log = loadQaLog();
+  tbody.innerHTML = "";
+
+  if (!log.length) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="5" style="text-align:center; color:#64748b; padding:14px;">아직 문의가 없어요. 오른쪽 위에서 날짜 선택 후 “행 추가”를 눌러봐.</td>`;
+    tbody.appendChild(tr);
+    return;
+  }
+
+  // 최신이 위
+  log.sort((a,b)=> String(b.date||"").localeCompare(String(a.date||"")) || (b._t||0)-(a._t||0));
+
+  for (const item of log) {
+    const tr = document.createElement("tr");
+    if (item.done) tr.classList.add("qa-row-done");
+
+    const tdDate = document.createElement("td");
+    tdDate.textContent = item.date || "";
+    tdDate.style.whiteSpace = "nowrap";
+
+    const tdDone = document.createElement("td");
+    tdDone.style.textAlign = "center";
+    const chk = document.createElement("input");
+    chk.type = "checkbox";
+    chk.checked = !!item.done;
+    chk.addEventListener("change", () => {
+      item.done = chk.checked;
+      const next = loadQaLog().map(x => (x._id === item._id ? item : x));
+      saveQaLog(next);
+      renderQaLog();
+    });
+    tdDone.appendChild(chk);
+
+    const tdQ = document.createElement("td");
+    const taQ = document.createElement("textarea");
+    taQ.className = "qa-textarea" + (item.done ? " qa-done" : "");
+    taQ.rows = 1;
+    taQ.placeholder = "문의 내용을 적어줘";
+    taQ.value = item.q || "";
+    taQ.addEventListener("input", () => {
+      autoResizeTextarea(taQ);
+      item.q = taQ.value;
+      const next = loadQaLog().map(x => (x._id === item._id ? item : x));
+      saveQaLog(next);
+    });
+    setTimeout(() => autoResizeTextarea(taQ), 0);
+    tdQ.appendChild(taQ);
+
+    const tdA = document.createElement("td");
+    const taA = document.createElement("textarea");
+    taA.className = "qa-textarea" + (item.done ? " qa-done" : "");
+    taA.rows = 1;
+    taA.placeholder = "답글을 적어줘";
+    taA.value = item.a || "";
+    taA.addEventListener("input", () => {
+      autoResizeTextarea(taA);
+      item.a = taA.value;
+      const next = loadQaLog().map(x => (x._id === item._id ? item : x));
+      saveQaLog(next);
+    });
+    setTimeout(() => autoResizeTextarea(taA), 0);
+    tdA.appendChild(taA);
+
+    const tdDel = document.createElement("td");
+    tdDel.style.textAlign = "center";
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "btn btn-danger";
+    delBtn.textContent = "삭제";
+    delBtn.addEventListener("click", () => {
+      const next = loadQaLog().filter(x => x._id !== item._id);
+      saveQaLog(next);
+      renderQaLog();
+    });
+    tdDel.appendChild(delBtn);
+
+    tr.appendChild(tdDate);
+    tr.appendChild(tdDone);
+    tr.appendChild(tdQ);
+    tr.appendChild(tdA);
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  }
+}
+
+function setupQaUI() {
+  const dateEl = document.getElementById("qaDate");
+  const addBtn = document.getElementById("addQaBtn");
+  if (!dateEl || !addBtn) return;
+
+  dateEl.value = todayISO();
+
+  addBtn.addEventListener("click", () => {
+    const date = normDateIso(dateEl.value || "") || todayISO();
+    const log = loadQaLog();
+    const item = { _id: cryptoRandomId(), _t: Date.now(), date, q: "", a: "", done: false };
+    log.push(item);
+    saveQaLog(log);
+    renderQaLog();
+    setTimeout(() => {
+      const first = document.querySelector(".qa-textarea");
+      first?.focus();
+    }, 30);
+  });
+
+  renderQaLog();
+}
+
 function cryptoRandomId() {
   try {
     const a = new Uint8Array(8);
@@ -2560,6 +2700,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupBackupUI();
   setupPlanUI();
   setupUpdatesUI();
+  setupQaUI();
     // AUTO_CLOUD_BOOT: URL/토큰이 저장돼 있으면 자동 불러오기
     try {
       cloudCfg = loadCloudCfg();

@@ -605,7 +605,9 @@ header {
 .update-textarea{
   width: 100%;
   min-width: 260px;
-  resize: vertical;
+  resize: none;
+  overflow: hidden;
+  min-height: 42px;
   padding: 10px 12px;
   border-radius: 12px;
   border: 1px solid rgba(15,23,42,.14);
@@ -613,6 +615,31 @@ header {
   font-family: inherit;
   font-size: 14px;
   line-height: 1.35;
+}
+
+/* Q&A */
+.qa-textarea{
+  width: 100%;
+  min-width: 240px;
+  resize: none;
+  overflow: hidden;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(15,23,42,.14);
+  background: rgba(255,255,255,.9);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.qa-done{
+  text-decoration: line-through;
+  color: #94a3b8;
+}
+
+.qa-row-done textarea{
+  background: rgba(148,163,184,.12);
 }
 .btn-danger{
   background: rgba(239,68,68,.12);
