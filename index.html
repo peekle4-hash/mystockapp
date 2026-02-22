@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+  <title>주식 매매기록 · 수익률 대시보드</title>
+  <link rel="manifest" href="./manifest.json"/>
+  <meta name="theme-color" content="#0f172a"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="주식 대시보드"/>
+  <link rel="apple-touch-icon" href="./icon-192.png"/>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="./styles.css" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+        <rect width="44" height="44" rx="14" fill="#0f172a"/>
+        <rect x="8" y="28" width="7" height="10" rx="2" fill="#3b82f6"/>
+        <rect x="18" y="20" width="7" height="18" rx="2" fill="#22c55e"/>
+        <rect x="28" y="13" width="7" height="25" rx="2" fill="#f59e0b"/>
+      </svg>
+      <span class="login-title">주식 대시보드</span>
+    </div>
+    <p class="login-sub">로그인하면 어떤 기기에서도<br>내 매매기록이 그대로 보여요 ☁️</p>
+
+    <div id="login-buttons">
+      <button class="btn-google" id="loginGoogleBtn">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Google 계정으로 로그인
+      </button>
+
+      <div class="login-divider"><span>또는 이메일로</span></div>
+
+      <div class="email-form">
+        <input type="email" id="loginEmail" placeholder="이메일 주소" autocomplete="email"/>
+        <input type="password" id="loginPassword" placeholder="비밀번호" autocomplete="current-password"/>
+        <div class="email-btns">
+          <button class="btn-primary" id="loginEmailBtn">로그인</button>
+          <button class="btn-secondary" id="signupEmailBtn">회원가입</button>
+        </div>
+      </div>
+      <p id="login-msg" class="login-msg"></p>
+    </div>
+</div>
+</div>
+
+<!-- 앱 본체 -->
+<div id="app-screen" style="display:none">
+<header>
+  <div class="header-top">
+    <div>
+      <h1>주식 매매기록 · 수익률 대시보드</h1>
+      <p class="sub">매수/매도 기록 · 실현/평가 손익 · ISA/일반 분리 · 날짜별 접기/펼치기</p>
+    </div>
+    <div class="header-user">
+      <span id="userEmail" class="user-email"></span>
+      <button class="btn-logout" id="logoutBtn">로그아웃</button>
+    </div>
+  </div>
+  <div id="sync-bar" class="sync-bar sync-idle">
+    <span id="sync-status-text">☁️ 준비중...</span>
+  </div>
+  <nav class="tabs" aria-label="페이지 탭">
+    <button class="tab-btn active" data-tab="tab-dashboard" type="button">대시보드</button>
+    <button class="tab-btn" data-tab="tab-trades" type="button">매매기록</button>
+    <button class="tab-btn" data-tab="tab-monthly" type="button">월별 수익률</button>
+    <button class="tab-btn" data-tab="tab-format" type="button">도움말</button>
+  </nav>
+</header>
+
+<main>
+  <!-- 대시보드 -->
+  <section class="card tab-page active" id="tab-dashboard">
+    <div class="row">
+      <div>
+        <label for="asOfDate"><b>기준 날짜</b></label>
+        <input id="asOfDate" type="date"/>
+      </div>
+      <div class="grow"></div>
+      <div class="hint">기준 날짜의 종가(평가가)를 입력하면 평가손익/수익률이 계산돼요.</div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi kpi-all"><div class="kpi-title">보유 원가(전체)</div><div class="kpi-val" id="kpiCostAll">-</div></div>
+      <div class="kpi kpi-all"><div class="kpi-title">평가손익(전체)</div><div class="kpi-val" id="kpiUnrealAll">-</div></div>
+      <div class="kpi kpi-all"><div class="kpi-title">실현손익 누적(전체)</div><div class="kpi-val" id="kpiRealAll">-</div></div>
+      <div class="kpi kpi-all"><div class="kpi-title">총 손익(전체)</div><div class="kpi-val" id="kpiTotalAll">-</div></div>
+      <div class="kpi kpi-all"><div class="kpi-title">총 수익률(전체)</div><div class="kpi-val" id="kpiRetAll">-</div></div>
+    </div>
+    <div class="kpi-grid-3">
+      <div class="kpi kpi-isa"><div class="kpi-title">보유 원가(ISA)</div><div class="kpi-val" id="kpiCostISA">-</div></div>
+      <div class="kpi kpi-isa"><div class="kpi-title">평가손익(ISA)</div><div class="kpi-val" id="kpiUnrealISA">-</div></div>
+      <div class="kpi kpi-isa"><div class="kpi-title">실현손익 누적(ISA)</div><div class="kpi-val" id="kpiRealISA">-</div></div>
+      <div class="kpi kpi-isa"><div class="kpi-title">총 수익률(ISA)</div><div class="kpi-val" id="kpiRetISA">-</div></div>
+    </div>
+    <div class="kpi-grid-3">
+      <div class="kpi kpi-gen"><div class="kpi-title">보유 원가(일반)</div><div class="kpi-val" id="kpiCostGEN">-</div></div>
+      <div class="kpi kpi-gen"><div class="kpi-title">평가손익(일반)</div><div class="kpi-val" id="kpiUnrealGEN">-</div></div>
+      <div class="kpi kpi-gen"><div class="kpi-title">실현손익 누적(일반)</div><div class="kpi-val" id="kpiRealGEN">-</div></div>
+      <div class="kpi kpi-gen"><div class="kpi-title">총 수익률(일반)</div><div class="kpi-val" id="kpiRetGEN">-</div></div>
+    </div>
+    <div class="note">※ 계산 방식: <b>이동평균(평균단가)</b> 기준.</div>
+  </section>
+
+  <!-- 매매기록 -->
+  <section class="card tab-page" id="tab-trades">
+    <div class="row">
+      <h2>데이터 입력 (매매기록)</h2>
+      <div class="grow"></div>
+      <div class="btns">
+        <button id="addRowBtn">행 추가</button>
+        <button class="secondary" id="exportBtn">CSV 내보내기</button>
+        <label class="file secondary">CSV 가져오기<input accept=".csv" id="importFile" type="file"/></label>
+        <button class="danger" id="clearBtn">전체 삭제</button>
+      </div>
+    </div>
+    <div class="row summary-row">
+      <h3 class="h3">보유현황(기업별)</h3>
+      <div class="grow"></div>
+      <div class="seg">
+        <button class="seg-btn active" id="holdScopeAll" type="button">전체</button>
+        <button class="seg-btn" id="holdScopeISA" type="button">ISA</button>
+        <button class="seg-btn" id="holdScopeGEN" type="button">일반</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:10px;align-items:center">
+      <h3 class="h3" style="font-size:16px;margin:0">현재 보유중</h3>
+      <span id="holdAsOfLabel" style="margin-left:12px;font-size:13px;color:#64748b;font-weight:500"></span>
+    </div>
+    <div class="table-wrap mini">
+      <table id="holdTableCurrent">
+        <thead><tr><th>기업명</th><th>계좌</th><th>보유수량</th><th>평균단가</th><th>보유원가</th><th>종가 입력</th><th>평가손익</th><th>실현손익 누적</th><th>총 손익</th><th>총 수익률</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="row" style="margin-top:18px">
+      <h3 class="h3" style="font-size:16px;margin:0">매도 완료 종목</h3>
+      <div class="grow"></div>
+      <div class="hint">보유수량이 0이 된 종목이 여기에 모여요.</div>
+    </div>
+    <div class="table-wrap mini">
+      <table id="holdTableClosed">
+        <thead><tr><th>기업명</th><th>계좌</th><th>보유수량</th><th>평균단가</th><th>보유원가</th><th>종가</th><th>평가손익</th><th>실현손익 누적</th><th>총 손익</th><th>총 수익률</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="table-wrap data-entry">
+      <table id="dataTable">
+        <thead><tr><th>날짜</th><th>기업명</th><th>계좌</th><th>구분</th><th>단가</th><th>수량</th><th>거래금액</th><th>실현손익(이 거래)</th><th>누적 실현손익</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 월별 수익률 -->
+  <section class="card tab-page" id="tab-monthly">
+    <div class="row">
+      <h2>월별 수익률</h2>
+      <div class="grow"></div>
+      <div class="hint">월별 투자금액/손익/수익률(월말 종가 기준)</div>
+    </div>
+    <div class="table-wrap">
+      <table id="monthlyTable">
+        <thead><tr><th>연-월</th><th>ISA 투자금액</th><th>ISA 손익</th><th>ISA 수익률</th><th>일반 투자금액</th><th>일반 손익</th><th>일반 수익률</th><th>전체 투자금액</th><th>전체 손익</th><th>전체 수익률</th><th>ISA 누적</th><th>일반 누적</th><th>전체 누적</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="charts">
+      <div class="chart"><canvas id="barMonthly"></canvas></div>
+      <div class="chart"><canvas id="lineCumulative"></canvas></div>
+    </div>
+  </section>
+
+  <!-- 도움말 -->
+  <section class="card small tab-page" id="tab-format">
+    <details open>
+      <summary>💾 데이터 백업/복원</summary>
+      <p style="font-size:13px;color:#64748b;margin:8px 0">데이터는 Supabase 클라우드에 자동 저장되지만, 로컬 백업도 보관하는 걸 추천해요.</p>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:8px">
+        <button class="secondary" id="gsBackupBtn">📥 백업 다운로드(JSON)</button>
+        <label class="btn-like" for="gsRestoreFile">📤 백업으로 복원</label>
+        <input id="gsRestoreFile" type="file" accept="application/json" style="display:none"/>
+      </div>
+    </details>
+    <details style="margin-top:10px">
+      <summary>📋 CSV 형식</summary>
+      <p>헤더: <code>date,company,account,side,price,qty</code></p>
+      <p><code>side</code>는 <b>BUY</b> 또는 <b>SELL</b> (또는 매수/매도) 가능.</p>
+    </details>
+  </section>
+</main>
+
+<footer>
+  <span>☁️ 데이터는 Supabase 클라우드에 자동 저장돼요. 로그인만 하면 어디서든 접근 가능.</span>
+</footer>
+</div>
+
+<script src="./app.js"></script>
+<script src="./auth.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+}
+(function(){
+  let dp=null;
+  window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();dp=e;if(localStorage.getItem('pwa_ok'))return;const b=document.createElement('div');b.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0f172a;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 -4px 24px rgba(0,0,0,.3);font-size:14px;';b.innerHTML='<span>📲 앱으로 설치하면 더 편해요!</span><button id="pi" style="background:#3b82f6;border:none;color:#fff;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:700;">설치</button><button id="pd" style="background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:8px 12px;cursor:pointer;">닫기</button>';document.body.appendChild(b);document.getElementById('pd').onclick=()=>{b.remove();localStorage.setItem('pwa_ok','1');};document.getElementById('pi').onclick=async()=>{if(dp){dp.prompt();await dp.userChoice;dp=null;b.remove();}};});
+  const ii=/iphone|ipad|ipod/i.test(navigator.userAgent);const ss=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+  if(ii&&!ss&&!localStorage.getItem('pwa_ok')){const b=document.createElement('div');b.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0f172a;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 -4px 24px rgba(0,0,0,.3);font-size:13px;';b.innerHTML='<span>📱 홈 화면에 추가하면 앱처럼 사용!</span><span style="color:#94a3b8;font-size:11px">공유 버튼 → 홈 화면에 추가</span><button style="margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;">닫기</button>';document.body.appendChild(b);b.querySelector('button').onclick=()=>{b.remove();localStorage.setItem('pwa_ok','1');};}
+})();
+</script>
+</body>
+</html>
