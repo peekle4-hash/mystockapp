@@ -6,7 +6,7 @@ const CLOUD_CFG_KEY = "stockTradeCloudCfg.v1";
 const DIRTY_KEY = "stockTradeDirty.v1";
 const LAST_SYNC_KEY = "stockTradeLastSync.v1";
 
-const REGISTRY_URL = ""; 
+const REGISTRY_URL = "https://script.google.com/macros/s/AKfycbwT7YtijCcoAhflqRAzZM8wYt8qEqdzIaVkcWo7Ivef_RFfqwtqztBH-ogUDKuKDVQ8/exec"; 
 // TODO: 레지스트리 Apps Script 웹앱(/exec) URL을 여기에 넣으면,
 // 사용자들은 "암호만"으로 자신의 Apps Script URL+토큰을 불러올 수 있어요.
 // 예) https://script.google.com/macros/s/XXXX/exec
