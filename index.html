@@ -36,7 +36,6 @@
     <button class="tab-btn" data-tab="tab-monthly" type="button">월별 수익률</button>
     <button class="tab-btn" data-tab="tab-sync" type="button">구글시트 연동</button>
     <button class="tab-btn" data-tab="tab-updates" type="button">업데이트</button>
-    <button class="tab-btn" data-tab="tab-qa" type="button">Q&amp;A</button>
   </nav>
 </header>
 
@@ -163,6 +162,8 @@
     <div class="row" style="margin-top:10px;align-items:center">
       <h3 class="h3" style="font-size:16px;margin:0">현재 보유중</h3>
       <span id="holdAsOfLabel" style="margin-left:12px;font-size:13px;color:#64748b;font-weight:500"></span>
+      <div class="grow"></div>
+      <button id="fetchAllPricesBtn" type="button" style="font-size:12px;padding:5px 12px;background:#dbeafe;border:1px solid #93c5fd;border-radius:6px;cursor:pointer;color:#1d4ed8;font-weight:600;">📡 종가 전체 자동조회</button>
     </div>
 
     <div class="table-wrap mini">
@@ -435,12 +436,16 @@
         <h2 style="margin:0;">업데이트 기록</h2>
         <p class="note" style="margin-top:6px;">수정/개선한 내용을 날짜별로 기록해두는 곳이에요.</p>
       </div>
-      <div>
+      <!-- 관리자 모드일 때만 표시 -->
+      <div id="adminUpdateControls" style="display:none; align-items:center; gap:8px;">
         <label for="updateLogDate"><b>날짜</b></label>
         <input id="updateLogDate" type="date"/>
-      </div>
-      <div>
         <button class="btn" id="addUpdateBtn" type="button">행 추가</button>
+        <button class="btn secondary" id="adminLogoutBtn" type="button" style="font-size:11px;">관리자 로그아웃</button>
+      </div>
+      <div id="adminLoginArea" style="display:flex; align-items:center; gap:8px;">
+        <input id="adminPwInput" type="password" placeholder="관리자 비밀번호" style="font-size:13px; padding:4px 8px; border:1px solid #cbd5e1; border-radius:6px; width:160px;" />
+        <button class="btn secondary" id="adminLoginBtn" type="button" style="font-size:12px;">관리자</button>
       </div>
     </div>
 
@@ -450,39 +455,7 @@
           <tr>
             <th style="min-width:120px;">날짜</th>
             <th>업데이트 내용</th>
-            <th style="width:84px;">삭제</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- 6) Q&A (로컬 저장) -->
-  <section class="card tab-page" id="tab-qa">
-    <div class="row" style="align-items:flex-end;">
-      <div style="flex:1;">
-        <h2 style="margin:0;">Q&amp;A</h2>
-        <p class="note" style="margin-top:6px;">요청사항/오류 문의를 기록하고, 답글을 달아 관리하는 탭이에요. (이 기기/브라우저에만 저장)</p>
-      </div>
-      <div>
-        <label for="qaDate"><b>날짜</b></label>
-        <input id="qaDate" type="date"/>
-      </div>
-      <div>
-        <button class="btn" id="addQaBtn" type="button">행 추가</button>
-      </div>
-    </div>
-
-    <div style="margin-top:12px; overflow:auto;">
-      <table class="table" id="qaTable">
-        <thead>
-          <tr>
-            <th style="min-width:110px;">날짜</th>
-            <th style="min-width:84px;">해결</th>
-            <th>문의</th>
-            <th>답글</th>
-            <th style="width:84px;">삭제</th>
+            <th id="updateDelCol" style="width:84px; display:none;">삭제</th>
           </tr>
         </thead>
         <tbody></tbody>

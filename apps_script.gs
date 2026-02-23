@@ -43,7 +43,7 @@ function ensureSpreadsheet_() {
     props.setProperty(PROP_SS_ID, id);
   }
 
-  const need = ["rows", "close", "collapsed"];
+  const need = ["rows", "close", "collapsed", "planBuy", "planSell"];
   const existing = ss.getSheets().map(s => s.getName());
   need.forEach(n => {
     if (!existing.includes(n)) ss.insertSheet(n);
@@ -123,6 +123,30 @@ function doPost(e) {
       const collapsed = (p.collapsedDates && typeof p.collapsedDates === "object") ? p.collapsedDates : {};
       clearAndWrite_(ss.getSheetByName("collapsed"), [[JSON.stringify(collapsed)]]);
 
+      // 매수 계획
+      const planBuy = Array.isArray(p.planBuy) ? p.planBuy : [];
+      const planBuyValues = [["_id","company","account","status","qty","amount","fractional","unitPrice","note","_t"]];
+      planBuy.forEach(r => {
+        planBuyValues.push([
+          r._id||"", r.company||"", r.account||"", r.status||"",
+          r.qty??'', r.amount??'', r.fractional?'true':'false', r.unitPrice??'',
+          r.note||"", r._t||""
+        ]);
+      });
+      clearAndWrite_(ss.getSheetByName("planBuy"), planBuyValues);
+
+      // 매도 계획
+      const planSell = Array.isArray(p.planSell) ? p.planSell : [];
+      const planSellValues = [["_id","company","account","status","qty","amount","fractional","unitPrice","note","_t"]];
+      planSell.forEach(r => {
+        planSellValues.push([
+          r._id||"", r.company||"", r.account||"", r.status||"",
+          r.qty??'', r.amount??'', r.fractional?'true':'false', r.unitPrice??'',
+          r.note||"", r._t||""
+        ]);
+      });
+      clearAndWrite_(ss.getSheetByName("planSell"), planSellValues);
+
       // meta
       PropertiesService.getScriptProperties().setProperty("UPDATED_AT", new Date().toISOString());
 
@@ -169,6 +193,32 @@ function doPost(e) {
         try { outCollapsed = JSON.parse(cell); } catch { outCollapsed = {}; }
       }
 
+      // planBuy
+      const planBuySheet = ss.getSheetByName("planBuy");
+      const pbv = planBuySheet.getDataRange().getValues();
+      const outPlanBuy = [];
+      for (let i = 1; i < pbv.length; i++) {
+        const [_id,company,account,status,qty,amount,fractional,unitPrice,note,_t] = pbv[i];
+        if (!_id) continue;
+        outPlanBuy.push({ _id:String(_id), company:company||"", account:account||"", status:status||"",
+          qty: qty===''?'':Number(qty), amount: amount===''?'':Number(amount),
+          fractional: fractional==='true', unitPrice: unitPrice===''?'':Number(unitPrice),
+          note:note||"", _t:_t?Number(_t):0 });
+      }
+
+      // planSell
+      const planSellSheet = ss.getSheetByName("planSell");
+      const psv = planSellSheet.getDataRange().getValues();
+      const outPlanSell = [];
+      for (let i = 1; i < psv.length; i++) {
+        const [_id,company,account,status,qty,amount,fractional,unitPrice,note,_t] = psv[i];
+        if (!_id) continue;
+        outPlanSell.push({ _id:String(_id), company:company||"", account:account||"", status:status||"",
+          qty: qty===''?'':Number(qty), amount: amount===''?'':Number(amount),
+          fractional: fractional==='true', unitPrice: unitPrice===''?'':Number(unitPrice),
+          note:note||"", _t:_t?Number(_t):0 });
+      }
+
       return jsonOut({
         ok: true,
         payload: {
@@ -178,6 +228,8 @@ function doPost(e) {
           rows: outRows,
           closeMap: outCloseMap,
           collapsedDates: outCollapsed,
+          planBuy: outPlanBuy,
+          planSell: outPlanSell,
         }
       });
     }

@@ -263,6 +263,8 @@ async function cloudSaveAll() {
     closeMap,
     collapsedDates,
     baseDate: (document.getElementById('asOfDate')?.value || ''),
+    planBuy: loadPlans('BUY'),
+    planSell: loadPlans('SELL'),
   };
   await cloudCall('save', payload);
   clearDirty();
@@ -290,6 +292,13 @@ async function cloudLoadAll() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
   localStorage.setItem(CLOSE_KEY, JSON.stringify(closeMap));
   localStorage.setItem(COLLAPSE_KEY, JSON.stringify(collapsedDates));
+  // 매수/매도 계획도 동기화
+  if (Array.isArray(p.planBuy)) {
+    localStorage.setItem(PLAN_BUY_KEY, JSON.stringify(p.planBuy));
+  }
+  if (Array.isArray(p.planSell)) {
+    localStorage.setItem(PLAN_SELL_KEY, JSON.stringify(p.planSell));
+  }
 
   renderFull();
   setCloudStatus('불러오기 완료 ✅', 'ok');
@@ -1212,11 +1221,14 @@ function renderHoldTableTo(tableId, items, emptyMsg) {
     tr.setAttribute("data-hold-company", p.company);
 
     const closeTd = isCurrent
-      ? `<td><input type="text" inputmode="decimal"
-            data-hold-close="${p.company}"
-            value="${Number.isFinite(p.close) ? p.close : ""}"
-            placeholder="-"
-            style="width:90px;text-align:right"></td>`
+      ? `<td style="white-space:nowrap">
+            <input type="text" inputmode="decimal"
+              data-hold-close="${p.company}"
+              value="${Number.isFinite(p.close) ? p.close : ""}"
+              placeholder="-"
+              style="width:76px;text-align:right">
+            <button type="button" class="fetch-price-btn" data-fetch-company="${p.company}" title="현재가 자동 조회" style="margin-left:4px;padding:2px 6px;font-size:11px;background:#e0f2fe;border:1px solid #7dd3fc;border-radius:4px;cursor:pointer;color:#0369a1;">조회</button>
+         </td>`
       : `<td>${Number.isFinite(p.close) ? fmtMoney(p.close) : "-"}</td>`;
 
     tr.innerHTML = `
@@ -1253,6 +1265,107 @@ function renderHoldTableTo(tableId, items, emptyMsg) {
         updateDerived(ledger2);
       });
     });
+
+    // 종가 자동 조회 버튼
+    tbody.querySelectorAll("button.fetch-price-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const company = btn.getAttribute("data-fetch-company");
+        btn.textContent = "⏳";
+        btn.disabled = true;
+        try {
+          const price = await fetchStockPriceKR(company);
+          if (price && Number.isFinite(price)) {
+            setCloseFor(asOfIso, company, price);
+            // 입력창 업데이트
+            const inp = tbody.querySelector(`input[data-hold-close="${company}"]`);
+            if (inp) { inp.value = String(price); }
+            const ledger2 = computeLedger(rows, asOfIso);
+            updateDerived(ledger2);
+            btn.textContent = "✅";
+            setTimeout(() => { btn.textContent = "조회"; btn.disabled = false; }, 2000);
+          } else {
+            btn.textContent = "❌";
+            btn.title = "조회 실패 - 종목명을 영문 티커로 입력하거나 직접 입력해줘";
+            setTimeout(() => { btn.textContent = "조회"; btn.disabled = false; }, 3000);
+          }
+        } catch (e) {
+          btn.textContent = "❌";
+          setTimeout(() => { btn.textContent = "조회"; btn.disabled = false; }, 3000);
+        }
+      });
+    });
+  }
+}
+
+// ===== 종가 자동 조회 =====
+// 종목명을 받아 Yahoo Finance에서 현재가를 가져옵니다.
+// 한국 주식: "삼성전자" → "005930.KS" 같은 티커를 내부 매핑으로 처리하거나
+// 사용자가 직접 티커를 입력한 경우 그대로 사용합니다.
+const COMPANY_TICKER_MAP = {
+  // 코스피 대형주
+  "삼성전자": "005930.KS", "삼성전자우": "005935.KS",
+  "SK하이닉스": "000660.KS", "LG에너지솔루션": "373220.KS",
+  "삼성바이오로직스": "207940.KS", "현대차": "005380.KS",
+  "셀트리온": "068270.KS", "기아": "000270.KS",
+  "KB금융": "105560.KS", "POSCO홀딩스": "005490.KS",
+  "신한지주": "055550.KS", "LG화학": "051910.KS",
+  "카카오": "035720.KS", "삼성SDI": "006400.KS",
+  "NAVER": "035420.KS", "현대모비스": "012330.KS",
+  "하나금융지주": "086790.KS", "우리금융지주": "316140.KS",
+  "삼성물산": "028260.KS", "SK이노베이션": "096770.KS",
+  "삼성생명": "032830.KS", "LG전자": "066570.KS",
+  "두산에너빌리티": "034020.KS", "카카오뱅크": "323410.KS",
+  "크래프톤": "259960.KS", "엔씨소프트": "036570.KS",
+  "포스코퓨처엠": "003670.KS", "한국전력": "015760.KS",
+  "KT&G": "033780.KS", "KT": "030200.KS",
+  "SK텔레콤": "017670.KS", "SK": "034730.KS",
+  "롯데케미칼": "011170.KS", "LG": "003550.KS",
+  "현대글로비스": "086280.KS", "LG이노텍": "011070.KS",
+  "코스모화학": "005420.KS", "한화솔루션": "009830.KS",
+  "한화에어로스페이스": "012450.KS", "한국항공우주": "047810.KS",
+  "현대건설": "000720.KS", "대우조선해양": "042660.KS",
+  "HD한국조선해양": "009540.KS", "삼성중공업": "010140.KS",
+  "한진칼": "180640.KS", "대한항공": "003490.KS",
+  // 코스닥
+  "에코프로비엠": "247540.KQ", "에코프로": "086520.KQ",
+  "카카오게임즈": "293490.KQ", "셀트리온헬스케어": "091990.KQ",
+  "엘앤에프": "066970.KQ", "CJ ENM": "035760.KQ",
+  "펄어비스": "263750.KQ", "위메이드": "112040.KQ",
+  "씨젠": "096530.KQ", "HLB": "028300.KQ",
+  "알테오젠": "196170.KQ", "리가켐바이오": "141080.KQ",
+  // 미국 ETF/주식 (이미 티커 형식)
+};
+
+async function fetchStockPriceKR(company) {
+  // 1) 매핑 테이블에서 티커 찾기
+  let ticker = COMPANY_TICKER_MAP[company.trim()];
+
+  // 2) 매핑 없으면: 숫자 6자리면 KS 붙이기, 그 외는 그대로 (미국 주식 티커로 간주)
+  if (!ticker) {
+    const clean = company.trim().replace(/\s/g, '');
+    if (/^\d{6}$/.test(clean)) {
+      ticker = clean + '.KS';
+    } else {
+      ticker = clean; // 예: AAPL, TSLA
+    }
+  }
+
+  // Yahoo Finance는 브라우저에서 직접 호출 시 CORS 차단됨
+  // allorigins.win 무료 CORS 프록시로 우회
+  const yahooUrl = 'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(ticker) + '?interval=1d&range=1d';
+  const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(yahooUrl);
+
+  try {
+    const res = await fetch(proxyUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const wrapper = await res.json();
+    // allorigins는 { contents: "..." } 형태로 반환
+    const data = JSON.parse(wrapper.contents);
+    const meta = data && data.chart && data.chart.result && data.chart.result[0] && data.chart.result[0].meta;
+    const price = meta && (meta.regularMarketPrice || meta.previousClose);
+    return (price && Number.isFinite(price)) ? price : null;
+  } catch {
+    return null;
   }
 }
 
@@ -2469,19 +2582,55 @@ function saveUpdateLog(arr) {
   try { localStorage.setItem(UPDATE_LOG_KEY, JSON.stringify(arr || [])); } catch {}
 }
 
+// ===== 관리자 모드 =====
+const ADMIN_PW_HASH_KEY = "stockAdminPwHash.v1";
+let _isAdminMode = false;
+
+async function hashPw(pw) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function getAdminHash() {
+  const stored = localStorage.getItem(ADMIN_PW_HASH_KEY);
+  if (stored) return stored;
+  const def = await hashPw('admin1234');
+  localStorage.setItem(ADMIN_PW_HASH_KEY, def);
+  return def;
+}
+
+async function checkAdminPw(pw) {
+  const hash = await hashPw(pw);
+  const stored = await getAdminHash();
+  return hash === stored;
+}
+
+function setAdminMode(on) {
+  _isAdminMode = on;
+  const ctrl = document.getElementById('adminUpdateControls');
+  const loginArea = document.getElementById('adminLoginArea');
+  const delCol = document.getElementById('updateDelCol');
+  if (ctrl) ctrl.style.display = on ? 'flex' : 'none';
+  if (loginArea) loginArea.style.display = on ? 'none' : 'flex';
+  if (delCol) delCol.style.display = on ? '' : 'none';
+  renderUpdateLog();
+}
+
 function renderUpdateLog() {
   const tbody = document.querySelector("#updatesTable tbody");
   if (!tbody) return;
   const log = loadUpdateLog();
   tbody.innerHTML = "";
+  const delCol = document.getElementById('updateDelCol');
+  if (delCol) delCol.style.display = _isAdminMode ? '' : 'none';
+
   if (!log.length) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="3" style="text-align:center; color:#64748b; padding:14px;">아직 기록이 없어요. 오른쪽 위에서 날짜 선택 후 “행 추가”를 눌러봐.</td>`;
+    tr.innerHTML = `<td colspan="3" style="text-align:center; color:#64748b; padding:14px;">${_isAdminMode ? '아직 기록이 없어요. 날짜 선택 후 "행 추가"를 눌러봐.' : '아직 업데이트 기록이 없어요.'}</td>`;
     tbody.appendChild(tr);
     return;
   }
 
-  // 최신 날짜가 위로
   log.sort((a,b)=> String(b.date||"").localeCompare(String(a.date||"")) || (b._t||0)-(a._t||0));
 
   for (const item of log) {
@@ -2490,38 +2639,50 @@ function renderUpdateLog() {
     const tdDate = document.createElement("td");
     tdDate.textContent = item.date || "";
     tdDate.style.whiteSpace = "nowrap";
+    tdDate.style.fontWeight = "600";
+    tdDate.style.color = "#475569";
 
     const tdText = document.createElement("td");
-    const ta = document.createElement("textarea");
-    ta.className = "update-textarea";
-    ta.rows = 1;
-    ta.placeholder = "업데이트 내용을 적어줘 (예: 매수·매도 계획 카드 2열 배치 추가)";
-    ta.value = item.text || "";
-    ta.addEventListener("input", () => {
-      autoResizeTextarea(ta);
-      item.text = ta.value;
-      saveUpdateLog(loadUpdateLog().map(x => (x._id===item._id ? item : x)));
-    });
-    // initial resize
-    setTimeout(() => autoResizeTextarea(ta), 0);
-    tdText.appendChild(ta);
 
-    const tdDel = document.createElement("td");
-    tdDel.style.textAlign="center";
-    const delBtn = document.createElement("button");
-    delBtn.type="button";
-    delBtn.className="btn btn-danger";
-    delBtn.textContent="삭제";
-    delBtn.addEventListener("click", () => {
-      const next = loadUpdateLog().filter(x => x._id !== item._id);
-      saveUpdateLog(next);
-      renderUpdateLog();
-    });
-    tdDel.appendChild(delBtn);
+    if (_isAdminMode) {
+      const ta = document.createElement("textarea");
+      ta.className = "update-textarea";
+      ta.rows = 1;
+      ta.placeholder = "업데이트 내용을 적어줘";
+      ta.value = item.text || "";
+      ta.addEventListener("input", () => {
+        autoResizeTextarea(ta);
+        item.text = ta.value;
+        saveUpdateLog(loadUpdateLog().map(x => (x._id===item._id ? item : x)));
+      });
+      setTimeout(() => autoResizeTextarea(ta), 0);
+      tdText.appendChild(ta);
 
-    tr.appendChild(tdDate);
-    tr.appendChild(tdText);
-    tr.appendChild(tdDel);
+      const tdDel = document.createElement("td");
+      tdDel.style.textAlign="center";
+      const delBtn = document.createElement("button");
+      delBtn.type="button";
+      delBtn.className="btn btn-danger";
+      delBtn.textContent="삭제";
+      delBtn.addEventListener("click", () => {
+        const next = loadUpdateLog().filter(x => x._id !== item._id);
+        saveUpdateLog(next);
+        renderUpdateLog();
+      });
+      tdDel.appendChild(delBtn);
+
+      tr.appendChild(tdDate);
+      tr.appendChild(tdText);
+      tr.appendChild(tdDel);
+    } else {
+      tdText.style.whiteSpace = "pre-wrap";
+      tdText.style.lineHeight = "1.7";
+      tdText.style.padding = "8px 4px";
+      tdText.textContent = item.text || "";
+      tr.appendChild(tdDate);
+      tr.appendChild(tdText);
+    }
+
     tbody.appendChild(tr);
   }
 }
@@ -2529,155 +2690,50 @@ function renderUpdateLog() {
 function setupUpdatesUI() {
   const dateEl = document.getElementById("updateLogDate");
   const addBtn = document.getElementById("addUpdateBtn");
-  if (!dateEl || !addBtn) return;
+  const loginBtn = document.getElementById("adminLoginBtn");
+  const logoutBtn = document.getElementById("adminLogoutBtn");
+  const pwInput = document.getElementById("adminPwInput");
 
-  dateEl.value = todayISO();
+  if (dateEl) dateEl.value = todayISO();
 
-  addBtn.addEventListener("click", () => {
-    const date = normDateIso(dateEl.value || "") || todayISO();
-    const log = loadUpdateLog();
-    const item = { _id: cryptoRandomId(), _t: Date.now(), date, text: "" };
-    log.push(item);
-    saveUpdateLog(log);
-    renderUpdateLog();
-    // 포커스 맨 위 textarea
-    setTimeout(() => {
-      const first = document.querySelector(".update-textarea");
-      first?.focus();
-    }, 30);
-  });
+  if (addBtn) {
+    addBtn.addEventListener("click", () => {
+      if (!_isAdminMode) return;
+      const date = normDateIso(dateEl?.value || "") || todayISO();
+      const log = loadUpdateLog();
+      const item = { _id: cryptoRandomId(), _t: Date.now(), date, text: "" };
+      log.push(item);
+      saveUpdateLog(log);
+      renderUpdateLog();
+      setTimeout(() => {
+        const first = document.querySelector(".update-textarea");
+        first?.focus();
+      }, 30);
+    });
+  }
+
+  if (loginBtn) {
+    loginBtn.addEventListener("click", async () => {
+      const pw = pwInput?.value || '';
+      if (!pw) { alert('비밀번호를 입력해줘'); return; }
+      const ok = await checkAdminPw(pw);
+      if (ok) {
+        setAdminMode(true);
+        if (pwInput) pwInput.value = '';
+      } else {
+        alert('비밀번호가 틀렸어요');
+      }
+    });
+    pwInput?.addEventListener('keydown', async (e) => {
+      if (e.key === 'Enter') loginBtn.click();
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => setAdminMode(false));
+  }
 
   renderUpdateLog();
-}
-
-
-// --- Q&A (local only) ---
-const QA_KEY = "qa_log_v1";
-
-function loadQaLog() {
-  try {
-    const raw = localStorage.getItem(QA_KEY);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveQaLog(arr) {
-  try { localStorage.setItem(QA_KEY, JSON.stringify(arr || [])); } catch {}
-}
-
-function renderQaLog() {
-  const tbody = document.querySelector("#qaTable tbody");
-  if (!tbody) return;
-  const log = loadQaLog();
-  tbody.innerHTML = "";
-
-  if (!log.length) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="5" style="text-align:center; color:#64748b; padding:14px;">아직 문의가 없어요. 오른쪽 위에서 날짜 선택 후 “행 추가”를 눌러봐.</td>`;
-    tbody.appendChild(tr);
-    return;
-  }
-
-  // 최신이 위
-  log.sort((a,b)=> String(b.date||"").localeCompare(String(a.date||"")) || (b._t||0)-(a._t||0));
-
-  for (const item of log) {
-    const tr = document.createElement("tr");
-    if (item.done) tr.classList.add("qa-row-done");
-
-    const tdDate = document.createElement("td");
-    tdDate.textContent = item.date || "";
-    tdDate.style.whiteSpace = "nowrap";
-
-    const tdDone = document.createElement("td");
-    tdDone.style.textAlign = "center";
-    const chk = document.createElement("input");
-    chk.type = "checkbox";
-    chk.checked = !!item.done;
-    chk.addEventListener("change", () => {
-      item.done = chk.checked;
-      const next = loadQaLog().map(x => (x._id === item._id ? item : x));
-      saveQaLog(next);
-      renderQaLog();
-    });
-    tdDone.appendChild(chk);
-
-    const tdQ = document.createElement("td");
-    const taQ = document.createElement("textarea");
-    taQ.className = "qa-textarea" + (item.done ? " qa-done" : "");
-    taQ.rows = 1;
-    taQ.placeholder = "문의 내용을 적어줘";
-    taQ.value = item.q || "";
-    taQ.addEventListener("input", () => {
-      autoResizeTextarea(taQ);
-      item.q = taQ.value;
-      const next = loadQaLog().map(x => (x._id === item._id ? item : x));
-      saveQaLog(next);
-    });
-    setTimeout(() => autoResizeTextarea(taQ), 0);
-    tdQ.appendChild(taQ);
-
-    const tdA = document.createElement("td");
-    const taA = document.createElement("textarea");
-    taA.className = "qa-textarea" + (item.done ? " qa-done" : "");
-    taA.rows = 1;
-    taA.placeholder = "답글을 적어줘";
-    taA.value = item.a || "";
-    taA.addEventListener("input", () => {
-      autoResizeTextarea(taA);
-      item.a = taA.value;
-      const next = loadQaLog().map(x => (x._id === item._id ? item : x));
-      saveQaLog(next);
-    });
-    setTimeout(() => autoResizeTextarea(taA), 0);
-    tdA.appendChild(taA);
-
-    const tdDel = document.createElement("td");
-    tdDel.style.textAlign = "center";
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "btn btn-danger";
-    delBtn.textContent = "삭제";
-    delBtn.addEventListener("click", () => {
-      const next = loadQaLog().filter(x => x._id !== item._id);
-      saveQaLog(next);
-      renderQaLog();
-    });
-    tdDel.appendChild(delBtn);
-
-    tr.appendChild(tdDate);
-    tr.appendChild(tdDone);
-    tr.appendChild(tdQ);
-    tr.appendChild(tdA);
-    tr.appendChild(tdDel);
-    tbody.appendChild(tr);
-  }
-}
-
-function setupQaUI() {
-  const dateEl = document.getElementById("qaDate");
-  const addBtn = document.getElementById("addQaBtn");
-  if (!dateEl || !addBtn) return;
-
-  dateEl.value = todayISO();
-
-  addBtn.addEventListener("click", () => {
-    const date = normDateIso(dateEl.value || "") || todayISO();
-    const log = loadQaLog();
-    const item = { _id: cryptoRandomId(), _t: Date.now(), date, q: "", a: "", done: false };
-    log.push(item);
-    saveQaLog(log);
-    renderQaLog();
-    setTimeout(() => {
-      const first = document.querySelector(".qa-textarea");
-      first?.focus();
-    }, 30);
-  });
-
-  renderQaLog();
 }
 
 function cryptoRandomId() {
@@ -2700,7 +2756,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setupBackupUI();
   setupPlanUI();
   setupUpdatesUI();
-  setupQaUI();
     // AUTO_CLOUD_BOOT: URL/토큰이 저장돼 있으면 자동 불러오기
     try {
       cloudCfg = loadCloudCfg();
@@ -2719,6 +2774,38 @@ document.addEventListener("DOMContentLoaded", () => {
     $("asOfDate").value = (localStorage.getItem(ASOF_KEY) || todayISO());
 
   $("addRowBtn")?.addEventListener("click", addEmptyRow);
+
+  // 종가 전체 자동조회
+  $("fetchAllPricesBtn")?.addEventListener("click", async () => {
+    const btn = $("fetchAllPricesBtn");
+    if (!btn) return;
+    const asOfIso = $("asOfDate").value || todayISO();
+    const ledger = computeLedger(rows, asOfIso);
+    const current = ledger.filter(p => p.qty > 0);
+    if (!current.length) { alert('보유중인 종목이 없어요'); return; }
+
+    btn.textContent = "⏳ 조회중...";
+    btn.disabled = true;
+    let ok = 0, fail = 0;
+
+    for (const p of current) {
+      const price = await fetchStockPriceKR(p.company);
+      if (price && Number.isFinite(price)) {
+        setCloseFor(asOfIso, p.company, price);
+        const inp = document.querySelector(`input[data-hold-close="${p.company}"]`);
+        if (inp) inp.value = String(price);
+        ok++;
+      } else {
+        fail++;
+      }
+    }
+
+    const ledger2 = computeLedger(rows, asOfIso);
+    updateDerived(ledger2);
+    btn.textContent = `✅ ${ok}개 완료${fail ? ` (${fail}개 실패)` : ''}`;
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = "📡 종가 전체 자동조회"; }, 4000);
+  });
 
   $("clearCloseBtn")?.addEventListener("click", clearCloseForDate);
   $("exportBtn")?.addEventListener("click", exportCSV);
